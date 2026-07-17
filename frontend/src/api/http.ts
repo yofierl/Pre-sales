@@ -39,6 +39,10 @@ export const http = {
     return request<T>(path, { method: 'POST', json })
   },
 
+  put<T>(path: string, json: unknown): Promise<T> {
+    return request<T>(path, { method: 'PUT', json })
+  },
+
   patch<T>(path: string, json: unknown): Promise<T> {
     return request<T>(path, { method: 'PATCH', json })
   },

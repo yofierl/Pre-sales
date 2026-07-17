@@ -1,6 +1,5 @@
 <template>
   <div v-loading="loading">
-    <!-- 创建模式：空白工作台 -->
     <template v-if="isCreating">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
         <h2 style="margin: 0">新建项目</h2>
@@ -11,7 +10,6 @@
       <ProjectForm @submit="handleCreate" />
     </template>
 
-    <!-- 编辑模式：项目工作台 -->
     <template v-else-if="project">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
         <h2 style="margin: 0">{{ project.name || '(未命名)' }}</h2>
@@ -22,7 +20,17 @@
         </div>
       </div>
 
-      <el-card style="margin-bottom: 20px">
+      <el-steps :active="activeStep" finish-status="success" style="margin-bottom: 24px">
+        <el-step title="参数与材料" />
+        <el-step title="需求草稿" />
+        <el-step title="工时与报价" />
+        <el-step title="文件导出" />
+      </el-steps>
+
+      <el-card v-if="activeStep === 0" style="margin-bottom: 20px">
+        <template #header>
+          <span>项目信息</span>
+        </template>
         <el-descriptions :column="2" border>
           <el-descriptions-item label="项目名称">{{ project.name || '(未命名)' }}</el-descriptions-item>
           <el-descriptions-item label="项目类型">
@@ -33,32 +41,31 @@
           <el-descriptions-item label="报价日期">{{ project.quote_date }}</el-descriptions-item>
           <el-descriptions-item label="客户名称">{{ project.customer_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="阶段">{{ stageLabel(project.stage) }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDate(project.created_at) }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 
-      <el-card>
-        <template #header>
-          <span>角色配置</span>
-        </template>
-        <el-table :data="project.roles" style="width: 100%">
-          <el-table-column prop="name" label="角色名称" />
-          <el-table-column label="单价（元/人天）" width="180">
-            <template #default="{ row }">
-              {{ (row.unit_price_cents / 100).toFixed(0) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="是否必选" width="100">
-            <template #default="{ row }">
-              <el-tag v-if="row.is_required" type="danger" size="small">必选</el-tag>
-              <el-tag v-else type="info" size="small">可选</el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+      <ProjectSetupStep
+        v-if="activeStep === 0"
+        :project-id="project.id"
+        @analysis-done="onAnalysisDone"
+      />
+
+      <RequirementDraftEditor
+        v-if="activeStep === 1 && analysisRun"
+        :project-id="project.id"
+        :analysis-payload="analysisRun.analysis_payload!"
+        @confirmed="onConfirmed"
+      />
+
+      <div v-if="activeStep === 2" style="text-align: center; padding: 40px; color: #999">
+        工时与报价（待 Task 3 实现）
+      </div>
+
+      <div v-if="activeStep === 3" style="text-align: center; padding: 40px; color: #999">
+        文件导出（待 Task 4 实现）
+      </div>
     </template>
 
-    <!-- 编辑对话框 -->
     <el-dialog v-model="showEdit" title="编辑项目" width="500px">
       <el-form :model="editForm" label-width="100px">
         <el-form-item label="项目名称">
@@ -90,13 +97,18 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getProject, createProject, updateProject, deleteProject } from '@/api/projects'
 import ProjectForm from '@/components/ProjectForm.vue'
+import ProjectSetupStep from '@/components/ProjectSetupStep.vue'
+import RequirementDraftEditor from '@/components/RequirementDraftEditor.vue'
 import type { Project, ProjectCreate } from '@/types/project'
+import type { RunResponse } from '@/types/run'
 
 const route = useRoute()
 const router = useRouter()
 const project = ref<Project | null>(null)
 const loading = ref(false)
 const showEdit = ref(false)
+const activeStep = ref(0)
+const analysisRun = ref<RunResponse | null>(null)
 
 const isCreating = computed(() => route.params.id === 'new')
 
@@ -118,10 +130,6 @@ function stageLabel(stage: string): string {
   return STAGE_MAP[stage] || stage
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('zh-CN')
-}
-
 function formatWan(cents: number): string {
   return `${(cents / 100 / 10000).toFixed(2)} 万元`
 }
@@ -136,6 +144,11 @@ async function loadProject() {
     editForm.customer_name = project.value.customer_name || ''
     editForm.target_price_wan = (project.value.target_gross_cents / 100 / 10000).toString()
     editForm.quote_company = project.value.quote_company
+
+    if (project.value.stage === 'draft_ready') activeStep.value = 1
+    else if (project.value.stage === 'quote_ready') activeStep.value = 2
+    else if (project.value.stage === 'completed') activeStep.value = 3
+    else activeStep.value = 0
   } finally {
     loading.value = false
   }
@@ -180,8 +193,18 @@ async function handleDelete() {
     ElMessage.success('删除成功')
     router.push('/projects')
   } catch {
-    // 取消操作不做处理
+    // ignore cancel
   }
+}
+
+function onAnalysisDone(run: RunResponse) {
+  analysisRun.value = run
+  activeStep.value = 1
+}
+
+function onConfirmed() {
+  activeStep.value = 2
+  ElMessage.success('已进入报价阶段')
 }
 
 onMounted(loadProject)

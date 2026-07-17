@@ -20,7 +20,18 @@ class Settings(BaseSettings):
     project_name: str = "售前知识 Agent"
     debug: bool = False
 
+    @property
+    def storage_root(self) -> Path:
+        return Path(self.storage_path).resolve()
+
+    @property
+    def db_path(self) -> Path:
+        return Path(self.database_url.removeprefix("sqlite:///./"))
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+settings = get_settings()
