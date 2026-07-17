@@ -2,9 +2,9 @@
 
 from fastapi import Request
 
-from app.services.agent_gateway import FakeAgent
+from app.services.openai_agent import OpenAIAgent
 
 
-def get_agent_gateway(request: Request) -> FakeAgent:
-    """返回 Agent 网关实例。"""
-    return FakeAgent()
+def get_agent_gateway(request: Request) -> OpenAIAgent:
+    """返回 OpenAI Agent 实例。"""
+    return OpenAIAgent()

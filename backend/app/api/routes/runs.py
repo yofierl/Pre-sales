@@ -12,7 +12,7 @@ from app.schemas.run import RunCreate, RunResponse, RunListResponse
 from app.schemas.requirement import ConfirmedRequirements
 from app.schemas.project import ProjectStage
 from app.services.run_service import RunService
-from app.services.agent_gateway import FakeAgent
+from app.services.openai_agent import OpenAIAgent
 
 router = APIRouter(tags=["runs"])
 
@@ -30,7 +30,7 @@ def start_analysis_run(
     body: RunCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    agent: FakeAgent = Depends(get_agent_gateway),
+    agent: OpenAIAgent = Depends(get_agent_gateway),
 ):
     project = _get_project(project_id, db)
     svc = RunService(db)
@@ -63,7 +63,7 @@ def retry_run(
     run_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    agent: FakeAgent = Depends(get_agent_gateway),
+    agent: OpenAIAgent = Depends(get_agent_gateway),
 ):
     svc = RunService(db)
     old_run = svc.get_run(run_id)
